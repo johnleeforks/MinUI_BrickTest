@@ -4,6 +4,7 @@
 #include <linux/fb.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <time.h>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -138,7 +139,17 @@ static void clearVideo(void) {
 }
 
 void PLAT_quitVideo(void) {
+	FILE* debug_log = fopen("/tmp/minui_shutdown_debug.log", "a");
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: PLAT_quitVideo() called\n");
+		fflush(debug_log);
+	}
+	
 	clearVideo();
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: clearVideo() completed\n");
+		fflush(debug_log);
+	}
 
 	SDL_FreeSurface(vid.screen);
 	SDL_FreeSurface(vid.buffer);
@@ -147,9 +158,23 @@ void PLAT_quitVideo(void) {
 	SDL_DestroyTexture(vid.texture);
 	SDL_DestroyRenderer(vid.renderer);
 	SDL_DestroyWindow(vid.window);
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: SDL surfaces/textures freed\n");
+		fflush(debug_log);
+	}
 
 	SDL_Quit();
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: SDL_Quit() completed\n");
+		fflush(debug_log);
+	}
+	
 	system("cat /dev/zero > /dev/fb0 2>/dev/null");
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: PLAT_quitVideo() finished\n");
+		fflush(debug_log);
+		fclose(debug_log);
+	}
 }
 
 void PLAT_clearVideo(SDL_Surface* screen) {
@@ -514,23 +539,70 @@ void PLAT_enableBacklight(int enable) {
 }
 
 void PLAT_powerOff(void) {
+	FILE* debug_log = fopen("/tmp/minui_shutdown_debug.log", "a");
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: PLAT_powerOff() called at %lu\n", time(NULL));
+		fflush(debug_log);
+	}
+	
 	system("rm -f /tmp/minui_exec && sync");
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: Cleaned up minui_exec\n");
+		fflush(debug_log);
+	}
+	
 	sleep(2);
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: Sleep completed\n");
+		fflush(debug_log);
+	}
 
 	SetRawVolume(MUTE_VOLUME_RAW);
 	PLAT_enableBacklight(0);
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: Audio/backlight disabled\n");
+		fflush(debug_log);
+	}
+	
 	SND_quit();
 	VIB_quit();
 	PWR_quit();
 	GFX_quit();
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: Subsystems quit\n");
+		fflush(debug_log);
+	}
 	
 	system("ifconfig wlan0 down");
 	system("killall -15 wpa_supplicant");
 	system("killall -9 udhcpc");
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: Network shutdown\n");
+		fflush(debug_log);
+	}
+	
 	system("cat /dev/zero > /dev/fb0 2>/dev/null");
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: Framebuffer cleared\n");
+		fflush(debug_log);
+	}
+	
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: About to call poweroff\n");
+		fflush(debug_log);
+		fclose(debug_log);
+	}
+	
 	system("poweroff");
+	
+	// This should never execute, but just in case:
+	debug_log = fopen("/tmp/minui_shutdown_debug.log", "a");
+	if (debug_log) {
+		fprintf(debug_log, "DEBUG: poweroff returned (this shouldn't happen)\n");
+		fclose(debug_log);
+	}
+	
 	exit(0);
-	// while (1) pause(); // lolwat
 }
 
 ///////////////////////////////
